@@ -113,7 +113,9 @@ const verifyPatreon = async (user) => {
             "x-api-key": config.apiKey
         },
         data: {
-            patreon: patreonObject
+            patreon: patreonObject,
+            password_protect: false,
+            unlist: false
         }
     }).catch(e => {
         return console.error(e.message);
@@ -157,6 +159,8 @@ const getTotalPatrons = async() => {
 const sleep = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+console.log('verifying patrons');
 
 main();
 
