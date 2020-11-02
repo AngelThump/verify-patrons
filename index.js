@@ -54,6 +54,8 @@ const verifyPatreon = async (user) => {
 
   if (!patronData.data.relationships.currently_entitled_tiers)
     return deletePatron(user);
+  if (patronData.data.relationships.currently_entitled_tiers.data.length === 0)
+    return;
 
   //get tier id then get tier data?
   const tier_id =
