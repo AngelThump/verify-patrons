@@ -33,7 +33,7 @@ const verifyPatreon = async (user) => {
     const tokens = await refreshUserToken(user.patreon.refresh_token);
     if (!tokens) {
       console.error(`could not refresh ${user.username}'s patreon tokens`);
-      return deletePatron(user);
+      return destroyPatron(user);
     }
     user.patreon.access_token = tokens.access_token;
     user.patreon.refresh_token = tokens.refresh_token;
@@ -120,6 +120,29 @@ const verifyPatreon = async (user) => {
 };
 
 const deletePatron = async (user) => {
+  user.patreon.isPatron = false;
+  user.patreon.tier = 0;
+  user.patreon.tierName = "";
+
+  await axios({
+    method: "PATCH",
+    url: `https://sso.angelthump.com/users/${user.id}`,
+    headers: {
+      "x-api-key": config.apiKey,
+    },
+    data: {
+      patreon: user.patreon,
+    },
+  })
+    .then(() => {
+      console.info(`${user.username} is no longer a patron.`);
+    })
+    .catch((e) => {
+      return console.error(e.message);
+    });
+};
+
+const destroyPatron = async (user) => {
   await axios({
     method: "PATCH",
     url: `https://sso.angelthump.com/users/${user.id}`,
