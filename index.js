@@ -1,5 +1,6 @@
 const axios = require("axios");
 const config = require("./config.json");
+const patreon = require("../sso/config/patreon.json");
 
 const main = async () => {
   const totalPatrons = await getTotalPatrons();
@@ -26,9 +27,14 @@ const formUrlEncoded = (x) =>
 const verifyPatreon = async (user) => {
   let isValid = await checkUserToken(user.patreon.access_token);
   if (!isValid) {
-    console.info("User token is expired");
+    console.info(
+      `${user.username}'s patreon token is expired. Trying to refresh...`
+    );
     const tokens = await refreshUserToken(user.patreon.refresh_token);
-    if (!tokens) return console.error("could not refresh user tokens");
+    if (!tokens) {
+      console.error(`could not refresh ${user.username}'s patreon tokens`);
+      return deletePatron(user);
+    }
     user.patreon.access_token = tokens.access_token;
     user.patreon.refresh_token = tokens.refresh_token;
 
@@ -114,10 +120,6 @@ const verifyPatreon = async (user) => {
 };
 
 const deletePatron = async (user) => {
-  user.patreon.isPatron = false;
-  user.patreon.tier = 0;
-  user.patreon.tierName = "";
-
   await axios({
     method: "PATCH",
     url: `https://sso.angelthump.com/users/${user.id}`,
@@ -125,7 +127,7 @@ const deletePatron = async (user) => {
       "x-api-key": config.apiKey,
     },
     data: {
-      patreon: user.patreon,
+      patreon: null,
     },
   })
     .then(() => {
@@ -140,10 +142,10 @@ const getTiers = async () => {
   let tiers;
   await axios
     .get(
-      `https://www.patreon.com/api/oauth2/v2/campaigns/${config.patreon.campaignID}?include=tiers&fields%5Btier%5D=amount_cents,title`,
+      `https://www.patreon.com/api/oauth2/v2/campaigns/${patreon.campaignID}?include=tiers&fields%5Btier%5D=amount_cents,title`,
       {
         headers: {
-          Authorization: `Bearer ${config.patreon.CREATOR_ACCESS_TOKEN}`,
+          Authorization: `Bearer ${patreon.CREATOR_ACCESS_TOKEN}`,
         },
       }
     )
@@ -196,16 +198,11 @@ const getMembershipId = async (access_token) => {
       }
     )
     .then((response) => {
-      if (
-        !response.data.included &&
-        typeof response.data.included[Symbol.iterator] !== "function"
-      )
-        return;
+      if (!response.data.included) return;
+      if (typeof response.data.included[Symbol.iterator] !== "function") return;
       for (const included of response.data.included) {
         if (!included.relationships) break;
-        if (
-          config.patreon.campaignID === included.relationships.campaign.data.id
-        ) {
+        if (patreon.campaignID === included.relationships.campaign.data.id) {
           membership_id = included.id;
           break;
         }
@@ -230,8 +227,8 @@ const refreshUserToken = async (refresh_token) => {
     data: formUrlEncoded({
       grant_type: "refresh_token",
       refresh_token: refresh_token,
-      client_id: config.patreon.CLIENT_ID,
-      client_secret: config.patreon.CLIENT_SECRET,
+      client_id: patreon.CLIENT_ID,
+      client_secret: patreon.CLIENT_SECRET,
     }),
   })
     .then((response) => {
@@ -255,7 +252,7 @@ const getPatronData = async (patronId) => {
       `https://www.patreon.com/api/oauth2/v2/members/${patronId}?include=currently_entitled_tiers,user&fields%5Bmember%5D=patron_status,email,pledge_relationship_start,campaign_lifetime_support_cents,currently_entitled_amount_cents,last_charge_date,last_charge_status,will_pay_amount_cents`,
       {
         headers: {
-          Authorization: `Bearer ${config.patreon.CREATOR_ACCESS_TOKEN}`,
+          Authorization: `Bearer ${patreon.CREATOR_ACCESS_TOKEN}`,
         },
       }
     )
@@ -280,18 +277,18 @@ const refreshCreatorToken = async () => {
     },
     data: formUrlEncoded({
       grant_type: "refresh_token",
-      refresh_token: config.patreon.CREATOR_REFRESH_TOKEN,
-      client_id: config.patreon.CLIENT_ID,
-      client_secret: config.patreon.CLIENT_SECRET,
+      refresh_token: patreon.CREATOR_REFRESH_TOKEN,
+      client_id: patreon.CLIENT_ID,
+      client_secret: patreon.CLIENT_SECRET,
     }),
   })
     .then((response) => {
       const data = response.data;
-      config.patreon.CREATOR_ACCESS_TOKEN = data.access_token;
-      config.patreon.CREATOR_REFRESH_TOKEN = data.refresh_token;
+      patreon.CREATOR_ACCESS_TOKEN = data.access_token;
+      patreon.CREATOR_REFRESH_TOKEN = data.refresh_token;
       fs.writeFile(
-        path.resolve(__dirname, "./config.json"),
-        JSON.stringify(config, null, 4),
+        path.resolve(__dirname, "../sso/config/patreon.json"),
+        JSON.stringify(patreon, null, 4),
         (err) => {
           if (err) return console.error(err);
           console.log("Refreshed Creator Patreon Token");
@@ -309,7 +306,7 @@ const checkCreatorToken = async () => {
   await axios
     .get(`https://www.patreon.com/api/oauth2/v2/campaigns`, {
       headers: {
-        Authorization: `Bearer ${config.patreon.CREATOR_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${patreon.CREATOR_ACCESS_TOKEN}`,
       },
     })
     .then((response) => {
