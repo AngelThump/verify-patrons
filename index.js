@@ -1,6 +1,7 @@
 const axios = require("axios");
 const config = require("./config.json");
 const patreon = require("../sso/config/patreon.json");
+const fs = require('fs');
 
 const main = async () => {
   const totalPatrons = await getTotalPatrons();
