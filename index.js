@@ -1,7 +1,10 @@
 const axios = require("axios");
 const config = require("./config.json");
-const patreon = require("../sso/config/patreon.json");
-const fs = require('fs');
+let patreon;
+const path = require("path");
+const fs = require("fs");
+const util = require("util");
+const readFile = util.promisify(fs.readFile);
 
 const main = async () => {
   const totalPatrons = await getTotalPatrons();
@@ -11,6 +14,18 @@ const main = async () => {
     currentPatrons = currentPatrons.concat(await getCurrentPatrons(skip));
     skip += 10;
   } while (totalPatrons != currentPatrons.length);
+
+  patreon = await readFile(
+    path.resolve(__dirname, "../sso/config/patreon.json"),
+    "utf8"
+  )
+    .then((data) => {
+      return JSON.parse(data);
+    })
+    .catch((e) => {
+      console.error(e);
+      return null;
+    });
 
   let isValid = await checkCreatorToken();
   if (!isValid) await refreshCreatorToken();
