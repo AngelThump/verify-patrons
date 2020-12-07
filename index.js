@@ -7,16 +7,17 @@ const util = require("util");
 const readFile = util.promisify(fs.readFile);
 
 const main = async () => {
-  const totalPatrons = await getTotalPatrons();
-  let skip = 0;
-  let currentPatrons = [];
+  let skip = 0, currentPatrons = [], patronData;
   do {
-    currentPatrons = currentPatrons.concat(await getCurrentPatrons(skip));
+    patronData = await getPatrons(skip);
+    currentPatrons = currentPatrons.concat(patronData.data);
     skip += 10;
-  } while (totalPatrons != currentPatrons.length);
+  } while (currentPatrons.length < patronData.total);
+
+  console.log(`verifying ${patronData.total} patrons...`);
 
   patreon = await readFile(
-    path.resolve(__dirname, "../sso/config/patreon.json"),
+    path.resolve(__dirname, config.patreonPath),
     "utf8"
   )
     .then((data) => {
@@ -363,8 +364,8 @@ const checkCreatorToken = async () => {
   return isValid;
 };
 
-const getCurrentPatrons = async (skip) => {
-  let currentPatrons = [];
+const getPatrons = async (skip) => {
+  let data;
   await axios({
     url: `https://sso.angelthump.com/users?patreon.isPatron=true&$limit=10&$skip=${skip}`,
     method: "GET",
@@ -373,41 +374,20 @@ const getCurrentPatrons = async (skip) => {
     },
   })
     .then((response) => {
-      currentPatrons = response.data.data;
+      data = response.data;
     })
     .catch((e) => {
       console.error(e);
     });
-  return currentPatrons;
-};
-
-const getTotalPatrons = async () => {
-  let total;
-  await axios({
-    url: `https://sso.angelthump.com/users?patreon.isPatron=true&$limit=0`,
-    method: "GET",
-    headers: {
-      "x-api-key": config.apiKey,
-    },
-  })
-    .then((response) => {
-      total = response.data.total;
-    })
-    .catch((e) => {
-      console.error(e);
-    });
-  return total;
+  return data;
 };
 
 const sleep = (ms) => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-console.log("verifying patrons");
-
 main();
 
 setInterval(() => {
-  console.log("verifying patrons");
   main();
 }, 1000 * 60 * 30);
