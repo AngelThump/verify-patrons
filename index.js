@@ -29,7 +29,7 @@ const main = async () => {
     });
 
   let isValid = await checkCreatorToken();
-  if (!isValid) await refreshCreatorToken();
+  if (!isValid) return await refreshCreatorToken();
 
   for (let patron of currentPatrons) {
     await verifyPatreon(patron);
@@ -105,8 +105,10 @@ const verifyPatreon = async (user) => {
     newTier = 1;
   } else if (userTier.attributes.amount_cents === 1000) {
     newTier = 2;
-  } else if (userTier.attributes.amount_cents === 3000) {
+  } else if (userTier.attributes.amount_cents === 1500) {
     newTier = 3;
+  } else if (userTier.attributes.amount_cents === 3000) {
+    newTier = 4;
   }
 
   //don't update if patron and same tier
