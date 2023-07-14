@@ -7,7 +7,9 @@ const util = require("util");
 const readFile = util.promisify(fs.readFile);
 
 const main = async () => {
-  let skip = 0, currentPatrons = [], patronData;
+  let skip = 0,
+    currentPatrons = [],
+    patronData;
   do {
     patronData = await getPatrons(skip);
     currentPatrons = currentPatrons.concat(patronData.data);
@@ -16,10 +18,7 @@ const main = async () => {
 
   console.log(`verifying ${patronData.total} patrons...`);
 
-  patreon = await readFile(
-    path.resolve(__dirname, config.patreonPath),
-    "utf8"
-  )
+  patreon = await readFile(path.resolve(__dirname, config.patreonPath), "utf8")
     .then((data) => {
       return JSON.parse(data);
     })
@@ -38,15 +37,12 @@ const main = async () => {
   console.log("done");
 };
 
-const formUrlEncoded = (x) =>
-  Object.keys(x).reduce((p, c) => p + `&${c}=${encodeURIComponent(x[c])}`, "");
+const formUrlEncoded = (x) => Object.keys(x).reduce((p, c) => p + `&${c}=${encodeURIComponent(x[c])}`, "");
 
 const verifyPatreon = async (user) => {
   let isValid = await checkUserToken(user.patreon.access_token);
   if (!isValid) {
-    console.info(
-      `${user.username}'s patreon token is expired. Trying to refresh...`
-    );
+    console.info(`${user.username}'s patreon token is expired. Trying to refresh...`);
     const tokens = await refreshUserToken(user.patreon.refresh_token);
     if (!tokens) {
       console.error(`could not refresh ${user.username}'s patreon tokens`);
@@ -75,14 +71,11 @@ const verifyPatreon = async (user) => {
   const patronData = await getPatronData(membership_id);
   if (!patronData) return deletePatron(user);
 
-  if (!patronData.data.relationships.currently_entitled_tiers)
-    return deletePatron(user);
-  if (patronData.data.relationships.currently_entitled_tiers.data.length === 0)
-    return;
+  if (!patronData.data.relationships.currently_entitled_tiers) return deletePatron(user);
+  if (patronData.data.relationships.currently_entitled_tiers.data.length === 0) return;
 
   //get tier id then get tier data?
-  const tier_id =
-    patronData.data.relationships.currently_entitled_tiers.data[0].id;
+  const tier_id = patronData.data.relationships.currently_entitled_tiers.data[0].id;
 
   const tiers = await getTiers();
 
@@ -129,9 +122,7 @@ const verifyPatreon = async (user) => {
     },
   })
     .then(() => {
-      console.info(
-        `Updated ${user.username} with patreon: ${user.patreon.isPatron} | tier: ${user.patreon.tierName}`
-      );
+      console.info(`Updated ${user.username} with patreon: ${user.patreon.isPatron} | tier: ${user.patreon.tierName}`);
     })
     .catch((e) => {
       return console.error(e.message);
@@ -142,6 +133,8 @@ const deletePatron = async (user) => {
   user.patreon.isPatron = false;
   user.patreon.tier = 0;
   user.patreon.tierName = "";
+  user.password_protect = false;
+  user.unlist = false;
 
   await axios({
     method: "PATCH",
@@ -170,6 +163,8 @@ const destroyPatron = async (user) => {
     },
     data: {
       patreon: null,
+      password_protect: false,
+      unlist: false,
     },
   })
     .then(() => {
@@ -183,14 +178,11 @@ const destroyPatron = async (user) => {
 const getTiers = async () => {
   let tiers;
   await axios
-    .get(
-      `https://www.patreon.com/api/oauth2/v2/campaigns/${patreon.campaignID}?include=tiers&fields%5Btier%5D=amount_cents,title`,
-      {
-        headers: {
-          Authorization: `Bearer ${patreon.CREATOR_ACCESS_TOKEN}`,
-        },
-      }
-    )
+    .get(`https://www.patreon.com/api/oauth2/v2/campaigns/${patreon.campaignID}?include=tiers&fields%5Btier%5D=amount_cents,title`, {
+      headers: {
+        Authorization: `Bearer ${patreon.CREATOR_ACCESS_TOKEN}`,
+      },
+    })
     .then((response) => {
       if (!response.data.included) return;
       tiers = response.data.included;
@@ -231,14 +223,11 @@ const checkUserToken = async (access_token) => {
 const getMembershipId = async (access_token) => {
   let membership_id;
   await axios
-    .get(
-      `https://www.patreon.com/api/oauth2/v2/identity?include=memberships,memberships.campaign`,
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      }
-    )
+    .get(`https://www.patreon.com/api/oauth2/v2/identity?include=memberships,memberships.campaign`, {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    })
     .then((response) => {
       if (!response.data.included) return;
       if (typeof response.data.included[Symbol.iterator] !== "function") return;
@@ -328,14 +317,10 @@ const refreshCreatorToken = async () => {
       const data = response.data;
       patreon.CREATOR_ACCESS_TOKEN = data.access_token;
       patreon.CREATOR_REFRESH_TOKEN = data.refresh_token;
-      fs.writeFile(
-        path.resolve(__dirname, "../sso/config/patreon.json"),
-        JSON.stringify(patreon, null, 4),
-        (err) => {
-          if (err) return console.error(err);
-          console.log("Refreshed Creator Patreon Token");
-        }
-      );
+      fs.writeFile(path.resolve(__dirname, "../sso/config/patreon.json"), JSON.stringify(patreon, null, 4), (err) => {
+        if (err) return console.error(err);
+        console.log("Refreshed Creator Patreon Token");
+      });
     })
     .catch((e) => {
       if (!e.response) return console.error(e);
